@@ -19,7 +19,7 @@ program
 program
   .command('merge')
   .description('合并分支 (Safe-Merge 策略)')
-  .argument('[target]', '目标环境 (dev 或 release)')
+  .argument('<target>', '目标环境 (dev 或 release)')
   .action(mergeAction);
 
 program

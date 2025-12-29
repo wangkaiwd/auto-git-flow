@@ -1,15 +1,22 @@
 {
-  "name": "auto-git-flow",
-  "version": "1.0.0",
+  "name": "@sppk/auto-git-flow",
+  "version": "0.0.1",
   "description": "",
   "type": "module",
   "bin": {
     "agf": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
     "prepublishOnly": "pnpm build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [],
   "author": "",
