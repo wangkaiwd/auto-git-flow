@@ -40,6 +40,8 @@ pnpx agf --help
 agf list [count] # 默认查看最近 2 个
 ```
 
+> 可以通过该命令检查 `agf` 获取的最新分支是否正确
+
 ### 2. 创建新分支 `agf create`
 根据类型（Feature/Dev/Release）和需求号自动生成规范分支。
 ```bash
