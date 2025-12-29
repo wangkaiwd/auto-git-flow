@@ -1,7 +1,6 @@
 # 🚀 Auto-Git-Flow (agf)
 
 [![npm version](https://img.shields.io/npm/v/@sppk/auto-git-flow.svg)](https://www.npmjs.com/package/@sppk/auto-git-flow)
-[![license](https://img.shields.io/badge/license-ISC-blue.svg)](./LICENSE)
 
 **Auto-Git-Flow** 是一个专为团队协作设计的 Git 工作流自动化工具。它通过命令行交互（CLI）规范化分支命名，并自动处理繁琐的合并流程，防止人为错误，提升交付效率。
 
