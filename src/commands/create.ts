@@ -70,7 +70,9 @@ async function getCreateConfig(forcedType?: BranchType): Promise<CreateConfig> {
   return { type, baseBranch, project, date: dateInput, reqNo };
 }
 
-export async function createAction(forcedType?: BranchType) {
+export async function createAction(arg?: BranchType | any) {
+  // Commander passes the Command object if no args are defined, so we need to filter that out
+  const forcedType = typeof arg === 'string' ? arg as BranchType : undefined;
   try {
     logger.header('创建分支');
     await checkClean();
