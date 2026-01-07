@@ -10,6 +10,7 @@
 
 - 🛠 **命名规范化**: 自动生成符合团队约定的 `feat/`, `DEV-`, `RELEASE-` 分支名称。
 - 🔄 **合并自动化**: 一键同步基准分支、合并代码并推送到远程，减少手工误操作。
+- 🧠 **智能检测**: 自动检测分支落后状态，仅在必要时执行同步，避免冗余操作。
 - 📋 **全景视图**: 快速查看当前项目的开发（Dev）与发布（Release）分支状态。
 - 🛡 **安全检查**: 执行前自动检查工作区状态，确保代码提交安全。
 - ⌨️ **交互式体验**: 基于 `@inquirer/prompts` 提供平滑的命令行交互。
@@ -34,25 +35,30 @@ pnpx agf --help
 
 ## 🛠 常用命令
 
-### 1. 查看分支状态 `agf list`
-展示最近的开发分支与发布分支列表。
-```bash
-agf list [count] # 默认查看最近 2 个
-```
+| 命令 | 说明 | 用法 |
+|------|------|------|
+| `agf list` | 展示最近的开发分支与发布分支列表 | `agf list [count]` |
+| `agf create` | 根据类型（Feature/Dev/Release）和需求号自动生成规范分支 | `agf create` |
+| `agf merge` | 将当前 Feature 分支合并到指定的目标分支 | `agf merge <dev\|release>` |
+| `agf sync` | 同步基准分支代码到当前 Feature 分支 | `agf sync` |
 
-> 可以通过该命令检查 `agf` 获取的最新分支是否正确
+### 命令详解
 
-### 2. 创建新分支 `agf create`
-根据类型（Feature/Dev/Release）和需求号自动生成规范分支。
-```bash
-agf create
-```
+#### `agf list [count]`
+查看最近的 Dev 与 Release 分支，默认显示最近 2 个。可用于检查 `agf` 识别的分支是否正确。
 
-### 3. 合并分支 `agf merge`
-将当前 Feature 分支自动同步基准代码并合并到指定的目标分支（Dev 或 Release）。
-```bash
-agf merge [target] # target 为必填：dev 或 release。
-```
+#### `agf create`
+交互式创建分支，根据类型自动生成规范命名。
+
+#### `agf merge <target>`
+将当前 Feature 分支合并到目标分支（`dev` 或 `release`）。
+
+**智能同步机制**：
+- 自动检测目标分支是否落后于基准分支，仅在落后时执行同步
+- 自动检测当前 Feature 分支是否落后于基准分支，必要时先同步 Feature
+
+#### `agf sync`
+手动同步基准分支（最新 Release）到当前 Feature 分支。如果当前分支已包含基准分支的所有提交，则跳过同步。
 
 ## 📋 命名规范
 
@@ -87,7 +93,7 @@ graph TD
 ```
 
 ### 分支合并流程 (Merge)
-将当前特性分支合并到目标环境。会自动先同步 `Release` 与 `Dev`、`Main` 分支的代码，确保环境一致性。
+将当前特性分支合并到目标环境。会**智能检测**分支落后状态，仅在必要时执行同步。
 
 ```mermaid
 graph TD
@@ -100,24 +106,35 @@ graph TD
     
     FindTarget --> Exist{目标分支存在?}
     Exist -- 否 --> CreateNew[引导创建并推送]
-    Exist -- 是 --> Sync[同步目标与基准分支]
+    Exist -- 是 --> Pull[拉取远程最新代码]
+    CreateNew --> Pull
     
-    CreateNew --> Sync
-    Sync --> Confirm{如果是 Release?}
+    Pull --> CheckTargetBehind{目标落后于基准?}
+    CheckTargetBehind -- 是 --> SyncTarget[同步: 基准 → 目标]
+    CheckTargetBehind -- 否 --> SkipTargetSync[跳过目标同步]
+    SyncTarget --> CheckFeatureBehind
+    SkipTargetSync --> CheckFeatureBehind{Feature 落后于基准?}
+    
+    CheckFeatureBehind -- 是 --> SyncFeature[同步: 基准 → Feature]
+    CheckFeatureBehind -- 否 --> SkipFeatureSync[跳过 Feature 同步]
+    SyncFeature --> Confirm
+    SkipFeatureSync --> Confirm{如果是 Release?}
+    
     Confirm -- 是 --> UserConfirm[二次人工确认]
     Confirm -- 否 --> DoMerge
     
     UserConfirm -- 取消 --> End([结束])
     UserConfirm -- 确认 --> DoMerge[执行合并]
     
-    DoMerge --> MergeBase[基准 -> 目标]
-    MergeBase --> MergeFeat[Feature -> 目标]
+    DoMerge --> MergeFeat[Feature → 目标]
     MergeFeat --> Push[推送目标分支]
     Push --> Back[切回 Feature 分支]
     Back --> Done([合并完成])
 
     classDef highlight fill:#f96,stroke:#333,stroke-width:2px
-    class MergeBase,UserConfirm highlight
+    classDef smart fill:#69f,stroke:#333,stroke-width:2px
+    class UserConfirm highlight
+    class CheckTargetBehind,CheckFeatureBehind smart
 ```
 
 
