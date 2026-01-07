@@ -7,7 +7,8 @@ import {
   checkout, 
   merge, 
   push,
-  pullBranch
+  pullBranch,
+  isBranchBehind
 } from '../utils/git.js';
 import { 
   getTargetBranch, 
@@ -51,21 +52,37 @@ async function ensureTargetBranch(type: BranchType): Promise<BranchInfo> {
 }
 
 /**
- * 执行同步逻辑：拉取远程最新代码并同步基准分支
+ * 执行同步逻辑：拉取远程最新代码并按需同步基准分支
  */
-async function syncAndPrepare(target: BranchInfo, base: BranchInfo | null) {
+async function syncAndPrepare(target: BranchInfo, base: BranchInfo | null, feature: string) {
   logger.step('正在同步远程代码...');
   await pullBranch(target.name);
   if (base) {
     await pullBranch(base.name);
+    await pullBranch(feature);
   }
   logger.done();
 
-  if (base && target.name !== base.name) {
-    logger.step(`正在同步基准 ${base.name} -> ${target.name}...`);
-    await checkout(target.name);
-    await merge(target.name, base.name);
-    logger.done();
+  if (base) {
+    // 1. 检查目标分支是否落后于基准分支
+    if (await isBranchBehind(target.name, base.name)) {
+      logger.step(`正在同步基准 ${base.name} -> ${target.name}...`);
+      await checkout(target.name);
+      await merge(target.name, base.name);
+      await push(target.name);
+      logger.done();
+    } else {
+      logger.dim(`${target.name} 已包含 ${base.name} 的所有提交，跳过同步`);
+    }
+
+    // 2. 检查特性分支是否落后于基准分支
+    if (await isBranchBehind(feature, base.name)) {
+      logger.step(`检测到 ${feature} 落后于 ${base.name}，正在同步...`);
+      await checkout(feature);
+      await merge(feature, base.name);
+      await push(feature);
+      logger.done();
+    }
   }
 }
 
@@ -113,7 +130,7 @@ export async function mergeAction(targetArg?: string) {
     }
 
     // 4. 同步与合并
-    await syncAndPrepare(targetBranch, baseBranch);
+    await syncAndPrepare(targetBranch, baseBranch, originalBranch);
 
     logger.step(`正在合并 Feature 到 ${targetBranch.name}...`);
     await checkout(targetBranch.name);

@@ -77,4 +77,13 @@ export async function getBranches() {
   return Array.from(new Set(summary.all.map(b => b.replace('remotes/origin/', ''))));
 }
 
+/**
+ * 检查分支 A 是否落后于分支 B
+ * @returns true 表示 A 落后于 B（B 有 A 没有的提交）
+ */
+export async function isBranchBehind(branchA: string, branchB: string): Promise<boolean> {
+  const result = await git.raw(['rev-list', '--count', `${branchA}..${branchB}`]);
+  return parseInt(result.trim(), 10) > 0;
+}
+
 export { git };
