@@ -35,7 +35,16 @@ export async function checkout(
 ) {
   if (create) {
     if (startPoint) {
-      await git.checkout(['-b', branch, startPoint])
+      // 始终使用远程分支作为基准
+      const branches = await git.branch()
+      const remoteRef = `remotes/origin/${startPoint}`
+      const remoteExists = branches.all.includes(remoteRef)
+
+      if (!remoteExists) {
+        throw new Error(`❌ 错误: 远程分支 origin/${startPoint} 不存在`)
+      }
+
+      await git.checkout(['-b', branch, `origin/${startPoint}`])
     } else {
       await git.checkoutLocalBranch(branch)
     }
@@ -94,11 +103,11 @@ export async function isBranchBehind(
   branchA: string,
   branchB: string
 ): Promise<boolean> {
-  const result = await git.raw([
-    'rev-list',
-    '--count',
-    `${branchA}..${branchB}`,
-  ])
+  // 使用远程分支进行比对
+  const refA = `origin/${branchA}`
+  const refB = `origin/${branchB}`
+
+  const result = await git.raw(['rev-list', '--count', `${refA}..${refB}`])
   return parseInt(result.trim(), 10) > 0
 }
 
