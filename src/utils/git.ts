@@ -1,6 +1,5 @@
 import { simpleGit, type SimpleGit } from 'simple-git'
 import chalk from 'chalk'
-import { toCamelCase } from './string.js'
 
 let _git: SimpleGit | null = null
 
@@ -129,17 +128,4 @@ export async function isBranchBehind(
 
   const result = await getGit().raw(['rev-list', '--count', `${refA}..${refB}`])
   return parseInt(result.trim(), 10) > 0
-}
-
-export async function getRepoName(): Promise<string | null> {
-  const remotes = await getGit().getRemotes(true)
-  const origin = remotes.find((r) => r.name === 'origin')
-  if (!origin?.refs?.fetch) return null
-
-  const url = origin.refs.fetch
-  const match =
-    url.match(/\/([^/]+?)(?:\.git)?$/) || url.match(/:([^/]+?)(?:\.git)?$/)
-  if (!match?.[1]) return null
-
-  return toCamelCase(match[1])
 }

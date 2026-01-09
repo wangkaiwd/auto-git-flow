@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkTempDir } from './helper.js'
-import childProcess from 'node:child_process'
+import childProcess, { type ExecSyncOptions } from 'node:child_process'
 
 vi.mock('@inquirer/prompts', () => ({
   input: vi.fn(),
@@ -10,25 +10,34 @@ vi.mock('@inquirer/prompts', () => ({
 import { createAction } from '../commands/create.js'
 import { input, select } from '@inquirer/prompts'
 import { BranchType } from '../utils/branch.js'
-import { format } from 'date-fns'
-import { toCamelCase } from '../utils/string.js'
+import { format, parse, subDays } from 'date-fns'
+import { resetGitInstance } from '../utils/git.js'
+
+const execOptions: ExecSyncOptions = {
+  stdio: 'inherit',
+}
 
 describe('create', () => {
-  let local
-  let remote
-  let projectName: string
+  let local: string
+  let remote: string
   beforeEach(() => {
+    resetGitInstance()
     local = mkTempDir()
     remote = mkTempDir()
-    projectName = toCamelCase(local.split('/').pop()!)
-    childProcess.execSync(`git init --bare ${remote}`, { stdio: 'inherit' })
-    childProcess.execSync(`git clone ${remote} ${local}`, { stdio: 'inherit' })
+    childProcess.execSync(`git init --bare ${remote}`, execOptions)
+    childProcess.execSync(`git clone ${remote} ${local}`, execOptions)
     process.chdir(local)
     // TODO: 要保证目标仓库已经完成初始化，并且至少有了main分支
-    childProcess.execSync(`git config user.name "xyz"`)
-    childProcess.execSync(`git config user.email "xyz@example.com"`)
-    childProcess.execSync(`git commit --allow-empty -m "feat: init"`)
-    childProcess.execSync(`git push -u origin main`)
+    childProcess.execSync(`git config user.name "xyz"`, execOptions)
+    childProcess.execSync(
+      `git config user.email "xyz@example.com"`,
+      execOptions
+    )
+    childProcess.execSync(
+      `git commit --allow-empty -m "feat: init"`,
+      execOptions
+    )
+    childProcess.execSync(`git push -u origin main`, execOptions)
     console.log('local', local)
     console.log('remote', remote)
   })
@@ -48,17 +57,73 @@ describe('create', () => {
     console.log('branches', branches)
     // local branch created
     expect(branches).toContain(`feat/xyz-${date}-${reqNo}`)
-    // remote branch created
+    // // remote branch created
     expect(branches).toContain(`remotes/origin/feat/xyz-${date}-${reqNo}`)
   })
-  it('should create a new dev branch', async () => {
+
+  it('should create a new dev branch without project name', async () => {
     const date = format(new Date(), 'yyyyMMdd')
+    const projectName = 'myProject'
 
     vi.mocked(select).mockResolvedValue(BranchType.DEV)
-    vi.mocked(input).mockResolvedValueOnce(date)
+    vi.mocked(input)
+      .mockResolvedValueOnce(date)
+      .mockResolvedValueOnce(projectName)
 
     await createAction()
     const branches = childProcess.execSync(`git branch -a`).toString()
     expect(branches).toContain(`remotes/origin/${projectName}-DEV-${date}`)
+  })
+
+  it('should create a new dev branch with project name', async () => {
+    const date = format(new Date(), 'yyyyMMdd')
+    const parsedDate = parse(date, 'yyyyMMdd', new Date())
+    const baseBranchDate = format(subDays(parsedDate, 3), 'yyyyMMdd')
+    const projectName = 'myProject'
+
+    childProcess.execSync(
+      `git push -u origin HEAD:${projectName}-RELEASE-${baseBranchDate}`,
+      execOptions
+    )
+    vi.mocked(select).mockResolvedValue(BranchType.DEV)
+    vi.mocked(input).mockResolvedValueOnce(date)
+
+    await createAction()
+
+    const branches = childProcess.execSync(`git branch -a`).toString()
+    expect(branches).toContain(`remotes/origin/${projectName}-DEV-${date}`)
+  })
+
+  it('should create a new release branch without project name', async () => {
+    const date = format(new Date(), 'yyyyMMdd')
+    const projectName = 'myProject'
+
+    vi.mocked(select).mockResolvedValue(BranchType.RELEASE)
+    vi.mocked(input)
+      .mockResolvedValueOnce(date)
+      .mockResolvedValueOnce(projectName)
+
+    await createAction()
+    const branches = childProcess.execSync(`git branch -a`).toString()
+    expect(branches).toContain(`remotes/origin/${projectName}-RELEASE-${date}`)
+  })
+
+  it('should create a new release branch with project name', async () => {
+    const date = format(new Date(), 'yyyyMMdd')
+    const parsedDate = parse(date, 'yyyyMMdd', new Date())
+    const baseBranchDate = format(subDays(parsedDate, 3), 'yyyyMMdd')
+    const projectName = 'myProject'
+
+    childProcess.execSync(
+      `git push -u origin HEAD:${projectName}-RELEASE-${baseBranchDate}`,
+      execOptions
+    )
+    vi.mocked(select).mockResolvedValue(BranchType.RELEASE)
+    vi.mocked(input).mockResolvedValueOnce(date)
+
+    await createAction()
+
+    const branches = childProcess.execSync(`git branch -a`).toString()
+    expect(branches).toContain(`remotes/origin/${projectName}-RELEASE-${date}`)
   })
 })
