@@ -36,6 +36,7 @@ export async function fetchRemote() {
 
 export async function getCurrentBranch(): Promise<string> {
   const branchInfo = await getGit().branch()
+  // TODO： Why this occur empty string ?
   return branchInfo.current
 }
 
@@ -55,7 +56,14 @@ export async function checkout(
         throw new Error(`❌ 错误: 远程分支 origin/${startPoint} 不存在`)
       }
 
-      await getGit().checkout(['-b', branch, `origin/${startPoint}`])
+      // https://git-scm.com/docs/git-config#Documentation/git-config.txt-branchautoSetupMerge
+      // Use --no-track to prevent auto track
+      await getGit().checkout([
+        '-b',
+        branch,
+        '--no-track',
+        `origin/${startPoint}`,
+      ])
     } else {
       await getGit().checkoutLocalBranch(branch)
     }
@@ -120,4 +128,24 @@ export async function isBranchBehind(
 
   const result = await getGit().raw(['rev-list', '--count', `${refA}..${refB}`])
   return parseInt(result.trim(), 10) > 0
+}
+
+export async function getRepoName(): Promise<string | null> {
+  const remotes = await getGit().getRemotes(true)
+  const origin = remotes.find((r) => r.name === 'origin')
+  if (!origin?.refs?.fetch) return null
+
+  const url = origin.refs.fetch
+  const match =
+    url.match(/\/([^/]+?)(?:\.git)?$/) || url.match(/:([^/]+?)(?:\.git)?$/)
+  if (!match?.[1]) return null
+
+  return match[1]
+    .split(/[-_]/)
+    .map((word, i) =>
+      i === 0
+        ? word.toLowerCase()
+        : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    )
+    .join('')
 }

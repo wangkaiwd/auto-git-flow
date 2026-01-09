@@ -6,7 +6,7 @@ export enum BranchType {
   FEATURE = 'FEATURE',
 }
 
-export const REQ_NO_REGEX = /^QZ-\d{4}$/
+export const REQ_NO_REGEX = /^QZ-\d{4,8}$/
 
 export interface BranchInfo {
   name: string

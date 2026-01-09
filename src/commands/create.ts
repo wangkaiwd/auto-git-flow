@@ -8,6 +8,7 @@ import {
   checkout,
   push,
   getCurrentBranch,
+  getRepoName,
 } from '../utils/git.js'
 import { getLatestRelease, REQ_NO_REGEX, BranchType } from '../utils/branch.js'
 import { logger } from '../utils/ui.js'
@@ -30,6 +31,7 @@ async function getCreateConfig(forcedType?: BranchType): Promise<CreateConfig> {
   if (latestRelease) {
     logger.info(`基准分支: ${latestRelease.name}`)
   } else {
+    // TODO: Is this logic correctly ?
     logger.warn('未找到 Release 分支，将以当前分支为基准')
   }
 
@@ -44,7 +46,7 @@ async function getCreateConfig(forcedType?: BranchType): Promise<CreateConfig> {
       ],
     }))
 
-  const project = latestRelease?.project || 'mall'
+  const project = latestRelease?.project || (await getRepoName()) || 'project'
   const today = format(new Date(), 'yyyyMMdd')
 
   const dateInput = await input({
@@ -64,7 +66,7 @@ async function getCreateConfig(forcedType?: BranchType): Promise<CreateConfig> {
       message: '请输入需求编号 (例如 QZ-8848):',
       validate: (input) =>
         REQ_NO_REGEX.test(input) ||
-        '❌ 格式错误: 需求编号必须为 QZ 后接4位数字 (如 QZ-8848)',
+        '❌ 格式错误: 需求编号必须为 QZ 后接4-8位数字 (如 QZ-8848)',
     })
   }
 
@@ -93,17 +95,13 @@ export async function createAction(arg?: BranchType | any) {
 
     logger.step(`正在从 ${baseBranch} 创建 ${branchName}...`)
     await checkout(branchName, true, baseBranch)
-
-    if (type !== BranchType.FEATURE) {
-      await push(branchName)
-    }
+    await push(branchName)
     logger.done()
 
     if (type === BranchType.FEATURE) {
-      logger.success('分支创建成功，已切换至该分支')
+      logger.success('分支创建成功并已推送到远程，已切换至该分支')
     } else {
       logger.success('分支创建成功并已推送到远程')
-
       // 非特性分支创建后切回原分支
       if (originalBranch !== (await getCurrentBranch())) {
         logger.dimRaw(`正在切回原分支 ${originalBranch}...`)
