@@ -1,5 +1,6 @@
 import { simpleGit, type SimpleGit } from 'simple-git'
 import chalk from 'chalk'
+import { toCamelCase } from './string.js'
 
 let _git: SimpleGit | null = null
 
@@ -140,12 +141,5 @@ export async function getRepoName(): Promise<string | null> {
     url.match(/\/([^/]+?)(?:\.git)?$/) || url.match(/:([^/]+?)(?:\.git)?$/)
   if (!match?.[1]) return null
 
-  return match[1]
-    .split(/[-_]/)
-    .map((word, i) =>
-      i === 0
-        ? word.toLowerCase()
-        : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    )
-    .join('')
+  return toCamelCase(match[1])
 }

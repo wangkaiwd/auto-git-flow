@@ -11,13 +11,16 @@ import { createAction } from '../commands/create.js'
 import { input, select } from '@inquirer/prompts'
 import { BranchType } from '../utils/branch.js'
 import { format } from 'date-fns'
+import { toCamelCase } from '../utils/string.js'
 
 describe('create', () => {
   let local
   let remote
+  let projectName: string
   beforeEach(() => {
     local = mkTempDir()
     remote = mkTempDir()
+    projectName = toCamelCase(local.split('/').pop()!)
     childProcess.execSync(`git init --bare ${remote}`, { stdio: 'inherit' })
     childProcess.execSync(`git clone ${remote} ${local}`, { stdio: 'inherit' })
     process.chdir(local)
@@ -48,8 +51,7 @@ describe('create', () => {
     // remote branch created
     expect(branches).toContain(`remotes/origin/feat/xyz-${date}-${reqNo}`)
   })
-
-  it('should create a new feature branch', async () => {
+  it('should create a new dev branch', async () => {
     const date = format(new Date(), 'yyyyMMdd')
 
     vi.mocked(select).mockResolvedValue(BranchType.DEV)
@@ -57,10 +59,6 @@ describe('create', () => {
 
     await createAction()
     const branches = childProcess.execSync(`git branch -a`).toString()
-    console.log('branches', branches)
-    // local branch created
-    expect(branches).toContain(`dev/xyz-${date}`)
-    // remote branch created
-    expect(branches).toContain(`remotes/origin/dev/xyz-${date}`)
+    expect(branches).toContain(`remotes/origin/${projectName}-DEV-${date}`)
   })
 })
