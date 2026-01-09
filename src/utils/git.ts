@@ -1,17 +1,28 @@
 import { simpleGit, type SimpleGit } from 'simple-git'
 import chalk from 'chalk'
 
-const git: SimpleGit = simpleGit()
+let _git: SimpleGit | null = null
+
+export function getGit() {
+  if (!_git) {
+    _git = simpleGit()
+  }
+  return _git
+}
+
+export function resetGitInstance() {
+  _git = null
+}
 
 export async function checkClean() {
-  const status = await git.status()
+  const status = await getGit().status()
   if (!status.isClean()) {
     throw new Error('❌ 工作区有未提交的代码，请先 Commit 或 Stash。')
   }
 }
 
 export async function getUserName(): Promise<string> {
-  const name = await git.getConfig('user.name')
+  const name = await getGit().getConfig('user.name')
   if (!name.value) {
     throw new Error('❌ 获取不到用户名，请执行 git config user.name 配置。')
   }
@@ -20,11 +31,11 @@ export async function getUserName(): Promise<string> {
 
 export async function fetchRemote() {
   console.log(chalk.gray('正在拉取远程最新分支列表...'))
-  await git.fetch(['--prune'])
+  await getGit().fetch(['--prune'])
 }
 
 export async function getCurrentBranch(): Promise<string> {
-  const branchInfo = await git.branch()
+  const branchInfo = await getGit().branch()
   return branchInfo.current
 }
 
@@ -36,7 +47,7 @@ export async function checkout(
   if (create) {
     if (startPoint) {
       // 始终使用远程分支作为基准
-      const branches = await git.branch()
+      const branches = await getGit().branch()
       const remoteRef = `remotes/origin/${startPoint}`
       const remoteExists = branches.all.includes(remoteRef)
 
@@ -44,18 +55,18 @@ export async function checkout(
         throw new Error(`❌ 错误: 远程分支 origin/${startPoint} 不存在`)
       }
 
-      await git.checkout(['-b', branch, `origin/${startPoint}`])
+      await getGit().checkout(['-b', branch, `origin/${startPoint}`])
     } else {
-      await git.checkoutLocalBranch(branch)
+      await getGit().checkoutLocalBranch(branch)
     }
   } else {
-    await git.checkout(branch)
+    await getGit().checkout(branch)
   }
 }
 
 export async function merge(target: string, source: string) {
   try {
-    await git.merge([source])
+    await getGit().merge([source])
   } catch (err: any) {
     console.error(err)
     throw new Error(
@@ -65,11 +76,11 @@ export async function merge(target: string, source: string) {
 }
 
 export async function push(branch: string) {
-  await git.push(['-u', 'origin', branch])
+  await getGit().push(['-u', 'origin', branch])
 }
 
 export async function pullBranch(branch: string) {
-  const branches = await git.branch()
+  const branches = await getGit().branch()
   const isLocal = branches.all.includes(branch)
 
   if (!isLocal) {
@@ -77,19 +88,19 @@ export async function pullBranch(branch: string) {
     const remoteExists = branches.all.includes(`remotes/origin/${branch}`)
     if (remoteExists) {
       console.log(chalk.gray(`正在从远程拉取分支 ${branch}...`))
-      await git.checkout(['-b', branch, `origin/${branch}`])
+      await getGit().checkout(['-b', branch, `origin/${branch}`])
     } else {
       throw new Error(`❌ 错误: 远程不存在分支 ${branch}`)
     }
   } else {
     console.log(chalk.gray(`正在更新本地分支 ${branch}...`))
-    await git.checkout(branch)
-    await git.pull('origin', branch)
+    await getGit().checkout(branch)
+    await getGit().pull('origin', branch)
   }
 }
 
 export async function getBranches() {
-  const summary = await git.branch(['-a'])
+  const summary = await getGit().branch(['-a'])
   return Array.from(
     new Set(summary.all.map((b) => b.replace('remotes/origin/', '')))
   )
@@ -107,8 +118,6 @@ export async function isBranchBehind(
   const refA = `origin/${branchA}`
   const refB = `origin/${branchB}`
 
-  const result = await git.raw(['rev-list', '--count', `${refA}..${refB}`])
+  const result = await getGit().raw(['rev-list', '--count', `${refA}..${refB}`])
   return parseInt(result.trim(), 10) > 0
 }
-
-export { git }
