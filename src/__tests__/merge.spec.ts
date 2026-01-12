@@ -3,7 +3,7 @@ import { mkTempDir } from './helper.js'
 import childProcess, { type ExecSyncOptions } from 'node:child_process'
 import { mergeAction } from '../commands/merge.js'
 import { confirm, input } from '@inquirer/prompts'
-import { add, format } from 'date-fns'
+import { add, format, sub } from 'date-fns'
 import { resetGitInstance } from '../utils/git.js'
 
 const execOptions: ExecSyncOptions = {
@@ -40,6 +40,24 @@ const createDevBranch = () => {
   // 创建完成切换回main分支
   childProcess.execSync(`git checkout main`, execOptions)
   return devBranchName
+}
+
+const createPreviousReleaseBranch = () => {
+  const releaseDate = format(sub(new Date(), { days: 2 }), 'yyyyMMdd')
+  const releaseBranchName = `myProject-RELEASE-${releaseDate}`
+  childProcess.execSync(`git checkout -b ${releaseBranchName}`, execOptions)
+  childProcess.execSync(`git push -u origin HEAD`, execOptions)
+  childProcess.execSync(`git checkout main`, execOptions)
+  return releaseBranchName
+}
+
+const createReleaseBranch = () => {
+  const releaseDate = format(add(new Date(), { days: 2 }), 'yyyyMMdd')
+  const releaseBranchName = `myProject-RELEASE-${releaseDate}`
+  childProcess.execSync(`git checkout -b ${releaseBranchName}`, execOptions)
+  childProcess.execSync(`git push -u origin HEAD`, execOptions)
+  childProcess.execSync(`git checkout main`, execOptions)
+  return releaseBranchName
 }
 
 describe('merge', () => {
@@ -104,5 +122,41 @@ describe('merge', () => {
       { encoding: 'utf-8' }
     )
     expect(mergedBranches).toContain(featBranchName)
+  })
+
+  it('should merge to closest release branch', async () => {
+    createPreviousReleaseBranch()
+    const closestReleaseBranchName = createReleaseBranch()
+    // 当前切换到了 feature 分支
+    const featBranchName = createFeatureBranch()
+
+    vi.mocked(confirm).mockResolvedValue(true)
+
+    await mergeAction('release')
+    const mergedBranches = childProcess.execSync(
+      `git branch --merged ${closestReleaseBranchName}`,
+      { encoding: 'utf-8' }
+    )
+    expect(mergedBranches).toContain(featBranchName)
+  })
+
+  it('should abort merge when user cancels confirmation', async () => {
+    createPreviousReleaseBranch()
+    const closestReleaseBranchName = createReleaseBranch()
+    const featBranchName = createFeatureBranch()
+
+    vi.mocked(confirm).mockResolvedValue(false)
+
+    await mergeAction('release')
+    const currentBranch = childProcess
+      .execSync(`git branch --show-current`, { encoding: 'utf-8' })
+      .trim()
+    expect(currentBranch).toBe(featBranchName)
+    await mergeAction('release')
+    const mergedBranches = childProcess.execSync(
+      `git branch --merged ${closestReleaseBranchName}`,
+      { encoding: 'utf-8' }
+    )
+    expect(mergedBranches).not.toContain(featBranchName)
   })
 })
