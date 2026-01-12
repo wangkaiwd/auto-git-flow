@@ -6,6 +6,7 @@ import { mergeAction } from './commands/merge.js'
 import { listAction } from './commands/list.js'
 import { syncAction } from './commands/sync.js'
 
+// todo: optimize json import
 const require = createRequire(import.meta.url)
 const { version } = require('../package.json')
 

@@ -12,6 +12,7 @@ import { input, select } from '@inquirer/prompts'
 import { BranchType } from '../utils/branch.js'
 import { format, parse, subDays } from 'date-fns'
 import { resetGitInstance } from '../utils/git.js'
+import { afterEach } from 'node:test'
 
 const execOptions: ExecSyncOptions = {
   stdio: 'inherit',
@@ -42,6 +43,10 @@ describe('create', () => {
     console.log('remote', remote)
   })
 
+  afterEach(() => {
+    resetGitInstance()
+  })
+
   it('should create a new feature branch', async () => {
     const date = format(new Date(), 'yyyyMMdd')
     const reqNo = 'QZ-1314'
@@ -57,7 +62,7 @@ describe('create', () => {
     console.log('branches', branches)
     // local branch created
     expect(branches).toContain(`feat/xyz-${date}-${reqNo}`)
-    // // remote branch created
+    // remote branch created
     expect(branches).toContain(`remotes/origin/feat/xyz-${date}-${reqNo}`)
   })
 
