@@ -69,18 +69,19 @@ pnpx agf --help
 
 工具严格遵循以下命名约定：
 
-- **Feature**: `feat/<username>-<date>-<reqNo>`  
-  _示例: `feat/jack-20231024-QZ-8848`_
-- **Dev**: `<project>-DEV-<date>`  
-  _示例: `mall-DEV-20231024`_
-- **Release**: `<project>-RELEASE-<date>`  
-  _示例: `mall-RELEASE-20231024`_
+| 分支类型 | 格式                            | 示例                         |
+| -------- | ------------------------------- | ---------------------------- |
+| Feature  | `feat/<username>-<YYYYMMDD>-<reqNo>` | `feat/jack-20231024-QZ-8848` |
+| Dev      | `<project>-DEV-<YYYYMMDD>`      | `mall-DEV-20231024`          |
+| Release  | `<project>-RELEASE-<YYYYMMDD>`  | `mall-RELEASE-20231024`      |
+
+> **需求编号格式**: `QZ-` 后跟 4~8 位数字（如 `QZ-8848` 或 `QZ-12345678`）
 
 ## 📐 工作流图解
 
 ### 分支创建流程 (Create)
 
-如果是 `dev` 或 `release` 分支，会自动推送到远程并切回原分支；如果是 `feature` 分支，则留在新分支。
+所有分支创建后都会自动推送到远程。`dev` 或 `release` 分支推送后切回原分支；`feature` 分支则留在新分支继续开发。
 
 ```mermaid
 graph TD
@@ -90,17 +91,21 @@ graph TD
     Fetch --> Config[采集配置: 类型/日期/需求号]
     Config --> Name[生成规范名称]
     Name --> Checkout[从 Base 分支创建并切换]
-    Checkout --> TypeCheck{分支类型?}
+    Checkout --> Push[推送到远程]
+    Push --> TypeCheck{分支类型?}
 
-    TypeCheck -- Feature --> DoneFeature([切到新分支, 完成])
-    TypeCheck -- Dev/Release --> Push[推送到远程]
-    Push --> Back[切回原分支]
+    TypeCheck -- Feature --> DoneFeature([留在新分支, 完成])
+    TypeCheck -- Dev/Release --> Back[切回原分支]
     Back --> DoneOther([完成])
 ```
 
 ### 分支合并流程 (Merge)
 
 将当前特性分支合并到目标环境。会**智能检测**分支落后状态，仅在必要时执行同步。
+
+**基准分支选择逻辑**：
+- 合并到 **Dev** 时：基准为**最新 Release** 分支
+- 合并到 **Release** 时：基准为**上一个 Release** 分支（避免将未发布的代码带入）
 
 ```mermaid
 graph TD
@@ -109,7 +114,12 @@ graph TD
     CheckClean -- 干净 --> CheckType{当前是 Feature?}
 
     CheckType -- 否 --> ErrorType([只允许从 Feature 发起])
-    CheckType -- 是 --> FindTarget[定位目标分支]
+    CheckType -- 是 --> ConfirmRelease{目标是 Release?}
+
+    ConfirmRelease -- 是 --> UserConfirm[二次人工确认]
+    ConfirmRelease -- 否 --> FindTarget
+    UserConfirm -- 取消 --> End([结束])
+    UserConfirm -- 确认 --> FindTarget[定位目标分支]
 
     FindTarget --> Exist{目标分支存在?}
     Exist -- 否 --> CreateNew[引导创建并推送]
@@ -124,14 +134,8 @@ graph TD
 
     CheckFeatureBehind -- 是 --> SyncFeature[同步: 基准 → Feature]
     CheckFeatureBehind -- 否 --> SkipFeatureSync[跳过 Feature 同步]
-    SyncFeature --> Confirm
-    SkipFeatureSync --> Confirm{如果是 Release?}
-
-    Confirm -- 是 --> UserConfirm[二次人工确认]
-    Confirm -- 否 --> DoMerge
-
-    UserConfirm -- 取消 --> End([结束])
-    UserConfirm -- 确认 --> DoMerge[执行合并]
+    SyncFeature --> DoMerge
+    SkipFeatureSync --> DoMerge[执行合并]
 
     DoMerge --> MergeFeat[Feature → 目标]
     MergeFeat --> Push[推送目标分支]
